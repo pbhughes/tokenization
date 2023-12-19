@@ -26,10 +26,14 @@ namespace tokenization_func
                 while ((line = blobStreamReader.ReadLine()) != null)
                 {
                     line = $"{line} tokenized  tokenized {DateTime.Now.TimeOfDay.ToString()}";
-                    if(lines.Count <= 100)
-                        lines.Add(line);
-                    else
+                    lines.Add(line);
+                    if (lines.Count == 100)
+                    {
                         await WriteSubFileAsync(lines, log);
+                        lines.Clear();
+                    }
+                        
+                   
                 }
             }
         }
@@ -60,7 +64,7 @@ namespace tokenization_func
             {
                 // Use the producer client to send the batch of events to the event hub
                 await producerClient.SendAsync(eventBatch);
-                log.LogInformation($"published event");
+                log.LogInformation($"published {lines.Count} events");
 
             }
             finally
