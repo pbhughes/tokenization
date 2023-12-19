@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "tokenization_func": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7051",
+      "launchBrowser": false
+    }
+  }
+}
