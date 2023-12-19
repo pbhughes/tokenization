@@ -15,7 +15,7 @@ namespace tokenization_func
     public class Function1
     {
         [FunctionName("Function1")]
-        public static async Task Run([BlobTrigger("blocks/{name}", Connection = "AZURE-STORAGE")]Stream myBlob, string name, ILogger log)
+        public static async Task Run([BlobTrigger("blocks/{name}", Connection = "AZURESTORAGE")]Stream myBlob, string name, ILogger log)
         {
             log.LogInformation($"C# Blob trigger function Processed blob\n Name:{name} \n Size: {myBlob.Length} Bytes");
 
