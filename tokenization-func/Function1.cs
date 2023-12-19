@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Logging;
+using System.Text;
+using Azure.Messaging.EventHubs.Producer;
+using Azure.Messaging.EventHubs;
 
 namespace tokenization_func
 {
@@ -18,47 +21,46 @@ namespace tokenization_func
 
             using (var blobStreamReader = new StreamReader(myBlob))
             {
-                int recordSize = 10;
                 string line = string.Empty;
-                List<string> lines = new List<string>(10);
+               
                 while ((line = blobStreamReader.ReadLine()) != null)
                 {
                     line = $"{line} tokenized  tokenized {DateTime.Now.TimeOfDay.ToString()}";
-                    lines.Add(line);
-                    if (lines.Count == recordSize)
-                    {
-                        await WriteSubFileAsync(lines, log, name);
-                        lines.Clear();
-                    }
+
+                    await WriteSubFileAsync(line, log);
                 }
             }
         }
 
-        private static async Task WriteSubFileAsync(List<string> lines, ILogger log, string blobName)
+        private static async Task WriteSubFileAsync(string line, ILogger log)
         {
-            // TODO: Replace <storage-account-name> with your actual storage account name
-            var bc = new BlobServiceClient("DefaultEndpointsProtocol=https;AccountName=fileprocessing32;AccountKey=/cW0JvbEXxSldiwPsmmXwf3sCpIteLct83ohZITICu11na5EfHz0/vrzE5yLz17DQr37z1IAKtFM+AStSPNy/g==;EndpointSuffix=core.windows.net");
 
-            //Create a unique name for the container
-            string containerName = "blocks";
 
-            // Create the container and return a container client object
-            BlobContainerClient cc = bc.GetBlobContainerClient(containerName);
-            foreach (string line in lines)
+            EventHubProducerClient producerClient = new EventHubProducerClient(
+          "Endpoint=sb://customer-list.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=1lkDNH2JI74AwezhU5ukrJSc6ktH9ZV7m+AEhIUnEZU=",
+          "search-requests");
+
+            using EventDataBatch eventBatch = await producerClient.CreateBatchAsync();
+
+            if (!eventBatch.TryAdd(new EventData(Encoding.UTF8.GetBytes(line))))
             {
-                log.LogInformation($"{line}");
+                // if it is too large for the batch
+                throw new Exception($"Event {line} is too large for the batch and cannot be sent.");
             }
 
-           
-            string blobContent = string.Join(Environment.NewLine, lines.ToArray());
-            var blobClient = cc.GetBlobClient(blobName);
+            log.LogInformation($"staged 1 event to search requests");
 
-            using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(blobContent)))
+            try
             {
-                await blobClient.UploadAsync(stream, true);
-            }
+                // Use the producer client to send the batch of events to the event hub
+                await producerClient.SendAsync(eventBatch);
+                log.LogInformation($"published event");
 
-            Console.WriteLine($"String array uploaded to blob: {blobName} in container: {containerName}");
+            }
+            finally
+            {
+                await producerClient.DisposeAsync();
+            }
 
         }
     }
