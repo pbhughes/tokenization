@@ -27,7 +27,7 @@ namespace tokenization_func
                 {
                     line = $"{line} tokenized  tokenized {DateTime.Now.TimeOfDay.ToString()}";
                     lines.Add(line);
-                    if (lines.Count == 100)
+                    if (lines.Count == 1000)
                     {
                         await WriteSubFileAsync(lines, log);
                         lines.Clear();
