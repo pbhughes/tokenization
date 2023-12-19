@@ -18,7 +18,7 @@ namespace tokenization_func
         public static async Task Run([BlobTrigger("blocks/{name}", Connection = "AZURESTORAGE")]Stream myBlob, string name, ILogger log)
         {
             log.LogInformation($"C# Blob trigger function Processed blob\n Name:{name} \n Size: {myBlob.Length} Bytes");
-
+            var lines = new List<string>();
             using (var blobStreamReader = new StreamReader(myBlob))
             {
                 string line = string.Empty;
@@ -26,13 +26,15 @@ namespace tokenization_func
                 while ((line = blobStreamReader.ReadLine()) != null)
                 {
                     line = $"{line} tokenized  tokenized {DateTime.Now.TimeOfDay.ToString()}";
-
-                    await WriteSubFileAsync(line, log);
+                    if(lines.Count <= 100)
+                        lines.Add(line);
+                    else
+                        await WriteSubFileAsync(lines, log);
                 }
             }
         }
 
-        private static async Task WriteSubFileAsync(string line, ILogger log)
+        private static async Task WriteSubFileAsync(List<string> lines, ILogger log)
         {
 
 
@@ -42,11 +44,15 @@ namespace tokenization_func
 
             using EventDataBatch eventBatch = await producerClient.CreateBatchAsync();
 
-            if (!eventBatch.TryAdd(new EventData(Encoding.UTF8.GetBytes(line))))
+            for(int i = 0;i < lines.Count; i++)
             {
-                // if it is too large for the batch
-                throw new Exception($"Event {line} is too large for the batch and cannot be sent.");
+                if (!eventBatch.TryAdd(new EventData(Encoding.UTF8.GetBytes(lines[i]))))
+                {
+                    // if it is too large for the batch
+                    throw new Exception($"Event {lines[i]} is too large for the batch and cannot be sent.");
+                }
             }
+            
 
             log.LogInformation($"staged 1 event to search requests");
 
